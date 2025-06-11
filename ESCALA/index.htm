@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Escala de Impostor (CIPS)</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f5f5f5;
+      color: #333;
+      padding: 20px;
+    }
+    h1, h2 {
+      color: #333;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background-color: #ffffff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    label, select, input {
+      display: block;
+      width: 100%;
+      margin-top: 5px;
+      margin-bottom: 15px;
+      font-size: 16px;
+    }
+    select, input {
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background-color: #333;
+      color: #fff;
+      padding: 10px 20px;
+      border: none;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    #chartContainer, #result {
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Escala Clance de Fenômeno do Impostor</h1>
+    <form id="cipsForm">
+      <label for="nome">Nome (opcional):</label>
+      <input type="text" id="nome" name="nome">
+
+      <div id="questions"></div>
+
+      <button type="button" onclick="calcularPontuacao()">Ver Resultado</button>
+      <button type="button" onclick="exportarPDF()">Exportar como PDF</button>
+    </form>
+
+    <div id="result"></div>
+    <div id="chartContainer">
+      <canvas id="resultChart"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const perguntas = [
+      "Eu consigo dar a impressão de que sou mais competente do que realmente sou.",
+      "Tenho medo que as pessoas importantes para mim descubram que não sou tão capaz quanto pareço.",
+      "Quando recebo reconhecimento por alguma realização, tenho medo de não conseguir manter esse nível de sucesso.",
+      "Muitas vezes, fico convencido de que os outros superestimam minha habilidade ou inteligência.",
+      "Às vezes, sinto que meu sucesso se deve a algum erro ou sorte.",
+      "Se recebo um prêmio ou elogio, questiono se realmente o mereço.",
+      "Temo que, eventualmente, minha falta de conhecimento seja descoberta.",
+      "Sou relutante em aceitar elogios por medo de que percebam minhas falhas.",
+      "Costumo comparar minhas habilidades às dos outros e sinto que sou inferior.",
+      "Tenho dificuldade em aceitar sucesso como resultado das minhas competências.",
+      "Sinto-me ansioso antes de realizar tarefas, por medo de não estar à altura.",
+      "Quando consigo algo, muitas vezes acho que foi por estar no lugar certo na hora certa.",
+      "Quando cometo erros, tenho a sensação de que isso prova minha incompetência.",
+      "Me esforço ao máximo para evitar falhas porque temo ser visto como incapaz.",
+      "Tenho a sensação de que engano os outros com minha imagem de competência.",
+      "Receio que as pessoas esperem muito de mim por terem uma imagem exagerada das minhas capacidades.",
+      "Penso que outros poderiam fazer meu trabalho melhor do que eu.",
+      "É difícil acreditar nos elogios que recebo, mesmo que sejam frequentes.",
+      "Sinto que preciso trabalhar mais do que os outros para provar meu valor.",
+      "Tenho medo de não corresponder às expectativas dos outros."
+    ];
+
+    const container = document.getElementById('questions');
+    perguntas.forEach((texto, index) => {
+      const div = document.createElement('div');
+      div.innerHTML = `
+        <label>${index + 1}. ${texto}
+          <select name="q${index + 1}" required>
+            <option value="">Selecione</option>
+            <option value="1">1 - Raramente</option>
+            <option value="2">2 - Ocasionalmente</option>
+            <option value="3">3 - Frequentemente</option>
+            <option value="4">4 - Muitas vezes</option>
+            <option value="5">5 - Quase sempre</option>
+          </select>
+        </label>
+      `;
+      container.appendChild(div);
+    });
+
+    let pontuacaoTotal = 0;
+    let classificacao = "";
+
+    function calcularPontuacao() {
+      const selects = document.querySelectorAll("select");
+      pontuacaoTotal = 0;
+      for (const select of selects) {
+        const valor = parseInt(select.value);
+        if (isNaN(valor)) {
+          alert("Responda todas as perguntas.");
+          return;
+        }
+        pontuacaoTotal += valor;
+      }
+
+      if (pontuacaoTotal < 41) classificacao = "Baixo grau de síndrome do impostor";
+      else if (pontuacaoTotal <= 60) classificacao = "Grau moderado";
+      else if (pontuacaoTotal <= 80) classificacao = "Grau elevado";
+      else classificacao = "Grau intenso de síndrome do impostor";
+
+      document.getElementById("result").innerText = `Pontuação: ${pontuacaoTotal} – ${classificacao}`;
+
+      renderChart(pontuacaoTotal);
+      enviarResultados();
+    }
+
+    function renderChart(pontos) {
+      const ctx = document.getElementById('resultChart').getContext('2d');
+      if (window.bar) window.bar.destroy();
+      window.bar = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Sua Pontuação'],
+          datasets: [{
+            label: 'Intensidade',
+            data: [pontos],
+            backgroundColor: '#333',
+            borderRadius: 8
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              suggestedMin: 0,
+              suggestedMax: 100,
+              ticks: { color: '#333' },
+              grid: { color: '#ccc' }
+            },
+            x: {
+              ticks: { color: '#333' },
+              grid: { color: '#ccc' }
+            }
+          },
+          plugins: {
+            legend: { labels: { color: '#333' } }
+          }
+        }
+      });
+    }
+
+    function exportarPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFontSize(12);
+      doc.text(`Nome: ${document.getElementById('nome').value || 'Não informado'}`, 10, 10);
+      doc.text(`Pontuação total: ${pontuacaoTotal}`, 10, 20);
+      doc.text(`Classificação: ${classificacao}`, 10, 30);
+      doc.save("resultado_CIPS.pdf");
+    }
+
+    function enviarResultados() {
+      const form = document.getElementById("cipsForm");
+      const dados = new FormData(form);
+      dados.append("pontuacao_total", pontuacaoTotal);
+      dados.append("classificacao", classificacao);
+
+      fetch("https://formspree.io/f/myzjwekq", {
+        method: "POST",
+        body: dados,
+        headers: { 'Accept': 'application/json' }
+      });
+    }
+  </script>
+</body>
+</html>
